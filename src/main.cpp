@@ -257,7 +257,7 @@ int main() {
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
                 float d = sensor_fusion[i][6];
-                if((d < (2 + 4 * lane + 2)) && (d < (2 + 4 * lane -2)))
+                if((d < (2 + (4 * lane) + 2)) && (d > (2 + 4 * lane -2)))
                 {
                     double vx = sensor_fusion[i][3];
                     double vy = sensor_fusion[i][4];
@@ -270,6 +270,10 @@ int main() {
                     {
                         //ref_vel = 29.5;
                         too_close = true;
+                        if(lane > 0)
+                        {
+                            lane = 0;
+                        }
                     }
 
                 }
@@ -333,7 +337,7 @@ int main() {
             ptsy.push_back(next_wp1[1]);
             ptsy.push_back(next_wp2[1]);
 
-            printf("%d ptsx size\n", ptsx.size());
+            //printf("%d ptsx size\n", ptsx.size());
 
             for(int i = 0; i < ptsx.size(); i++)
             {
