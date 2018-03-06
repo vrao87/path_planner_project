@@ -208,7 +208,7 @@ int main() {
   // Set the reference velocity
   double ref_vel = 49.5;
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -284,10 +284,51 @@ int main() {
 
             }
 
-          	json msgJson;
+            vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            vector<double> next_wp2 = getXY(car_s +90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
-          	vector<double> next_x_vals;
-          	vector<double> next_y_vals;
+            for(int i = 0; i < ptsx.size(); i++)
+            {
+                double shift_x = ptsx[i] - ref_x;
+                double shift_y = ptsy[i] - ref_y;
+
+                ptsx[i] = (shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw));
+                ptsy[i] = (shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw));
+
+            }
+
+            // Create a spline 
+            tk::spline s;
+
+            // Set x,y point to the spline
+            s.set_points(ptsx, ptsy);
+
+            vector<double> next_x_vals;
+            vector<double> next_y_vals;
+
+            // Start with all of the previous points from last cycle
+            for(int i = 0; i < previous_path_x.size(); i++)
+            {
+                next_x_vals.push_back(previous_path_x[i]);
+                next_y_vals.push_back(previous_path_y[i]);
+            }
+
+            // Calculate how to break up spline points so that we travel at our desired velocity 
+            double target_x = 30.0;
+            double target_y = s(target_x);
+            double target_dist = sqrt((target_x * target_x)+(target_y * target_y));
+
+            ptsx.push_back(next_wp0[0]);
+            ptsx.push_back(next_wp1[0]);
+            ptsx.push_back(next_wp2[0]);
+
+            ptsy.push_back(next_wp0[1]);
+            ptsy.push_back(next_wp1[1]);
+            ptsy.push_back(next_wp2[1]);
+
+
+          	json msgJson;
 
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
