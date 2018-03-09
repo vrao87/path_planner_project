@@ -288,31 +288,52 @@ int main() {
                     {
                         //ref_vel = 29.5;
                         too_close_ahead = true;
-                        if(lane > 0)
-                        {
-                            lane = 0;
-                        }
-                    }
-                    else if(((car_lane - lane) == -1) && (abs(check_car_s - car_s) < 30))
-                    {
-                        
-                        too_close_left = true;
-                        
-                    }
-                    else if(((car_lane - lane) == 1) && (abs(check_car_s - car_s) < 30))
-                    {
-                        too_close_right = true;
                     }
                 }
+                else if(((car_lane - lane) == -1) && (abs(check_car_s - car_s) < 30))
+                {                   
+                    too_close_left = true;                        
+                }
+                else if(((car_lane - lane) == 1) && (abs(check_car_s - car_s) < 30))
+                {
+                    too_close_right = true;
+                }
+                
             }
 
             if(too_close_ahead)
             {
-                 ref_vel -= 0.224;
+                if ( !too_close_left && lane > 0 ) 
+                {
+                    // if there is no car left and there is a left lane.
+                    lane--; // Change lane left.
+                }
+                else if ( !too_close_right && lane != 2 )
+                {
+                    // if there is no car right and there is a right lane.
+                    lane++; // Change lane right.
+                } 
+                else 
+                {
+                    // Reduce speed
+                    ref_vel -= 0.224;
+                }
+                
             }
-            else if(ref_vel < 49.5)
+            else 
             {
-               ref_vel += 0.224;
+                if ( lane != 1 ) 
+                {   // if we are not on the center lane.
+                    if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
+                    {
+                        lane = 1; // Back to center.
+                    }
+                }
+                if(ref_vel < 49.5)
+                {
+                    // If not too close to another vehicle, increase the speed
+                    ref_vel += 0.224;
+                }
             }
             
             vector<double> ptsx;
