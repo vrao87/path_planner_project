@@ -252,34 +252,61 @@ int main() {
                 car_s = end_path_s;
             }
 
-            bool too_close = false;
+            bool too_close_ahead = false;
+            bool too_close_left = false;
+            bool too_close_right = false;
 
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
                 float d = sensor_fusion[i][6];
-                if((d < (2 + (4 * lane) + 2)) && (d > (2 + 4 * lane -2)))
+                int car_lane = -1;
+                if ( d > 0 && d < 4 ) 
                 {
-                    double vx = sensor_fusion[i][3];
-                    double vy = sensor_fusion[i][4];
-                    double check_speed = sqrt(vx*vx + vy*vy);
-                    double check_car_s = sensor_fusion[i][5];
+                    car_lane = 0;
+                } else if ( d > 4 && d < 8 ) 
+                {
+                    car_lane = 1;
+                } else if ( d > 8 && d < 12 ) 
+                {
+                    car_lane = 2;
+                }
+                if (car_lane < 0) 
+                {
+                    continue;
+                }
 
-                    check_car_s += ((double)prev_size*0.02*check_speed);
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double check_speed = sqrt(vx*vx + vy*vy);
+                double check_car_s = sensor_fusion[i][5];
 
+                check_car_s += ((double)prev_size*0.02*check_speed);
+
+                if(lane == car_lane)
+                {                   
                     if((check_car_s > car_s) && ((check_car_s - car_s) < 30))
                     {
                         //ref_vel = 29.5;
-                        too_close = true;
+                        too_close_ahead = true;
                         if(lane > 0)
                         {
                             lane = 0;
                         }
                     }
-
+                    else if(((car_lane - lane) == -1) && (abs(check_car_s - car_s) < 30))
+                    {
+                        
+                        too_close_left = true;
+                        
+                    }
+                    else if(((car_lane - lane) == 1) && (abs(check_car_s - car_s) < 30))
+                    {
+                        too_close_right = true;
+                    }
                 }
             }
 
-            if(too_close)
+            if(too_close_ahead)
             {
                  ref_vel -= 0.224;
             }
