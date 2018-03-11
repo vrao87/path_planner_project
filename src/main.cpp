@@ -175,16 +175,23 @@ enum lane
     invalid
 };
 
+
+typedef struct 
+{
+  double frontLeftNearestDist;
+  double frontMidNearestDist;
+  double frontRightNearestDist;
+  double backLeftNearestDist;
+  double backMidNearestDist;
+  double backRightNearestDist;
+  
+}lane_dist;
+
+#define MAX_DIR 6
+
 double laneCostFront = MAX_COST_FRONT;
 double laneCostLeft = MAX_COST_FRONT;
 double laneCostRight = MAX_COST_FRONT;
-
-double frontLeftNearestDist = MAX_DIST;
-double frontMidNearestDist = MAX_DIST;
-double frontRightNearestDist = MAX_DIST;
-double backLeftNearestDist = MAX_DIST;
-double backMidNearestDist = MAX_DIST;
-double backRightNearestDist = MAX_DIST;
 
 double speedFrontLeft;
 double speedBackLeft;
@@ -197,37 +204,42 @@ double speedBackRight;
 
 
 
-void FindClosestInLane(vector<double> sensor_fusion, int prev_size, double car_s, int &car_lane)
+void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_s, lane_dist & nearestDist)
 {
-    /* Distance and speed of nearest vehicle in each lane */
 
-    double obj_vx = sensor_fusion[3];
-    double obj_vy = sensor_fusion[4];
-    double obj_s = sensor_fusion[5];
-    double obj_d = sensor_fusion[6];
+    /* Distance and speed of nearest vehicle in each lane */
+    double obj_vx = fusion_obj[3];
+    double obj_vy = fusion_obj[4];
+    double obj_s = fusion_obj[5];
+    double obj_d = fusion_obj[6];
     double obj_speed = sqrt(obj_vx * obj_vx + obj_vy * obj_vy);
 
+
+
     obj_s +=  ((double)prev_size * 0.02 * obj_speed);
+    double car_dist = obj_s - car_s;
+
+
 
     if((obj_d > 0) && (obj_d < 4))
     {
         /* Car is in leftmost lane */
-        car_lane = 0;
-        if(obj_s > car_s) 
+        if(car_dist > 0) 
         {   
-            /* Car is ahead of Ego */
-            if(obj_s < frontLeftNearestDist)
+           /* Car is ahead of Ego */
+            if(car_dist < nearestDist.frontLeftNearestDist)
             {
-                 frontLeftNearestDist = obj_s;
+              //printf("car dist %f\n", car_dist);
+                 nearestDist.frontLeftNearestDist = car_dist;
                  speedFrontLeft = obj_speed;
-            } 
+            }
         }
         else
         { 
             /* Car is behind Ego */
-            if(abs(obj_s) < backLeftNearestDist)
+            if(abs(car_dist) < nearestDist.backLeftNearestDist)
             {
-                backLeftNearestDist = obj_s;
+                nearestDist.backLeftNearestDist = abs(car_dist);
                 speedBackLeft = obj_speed;
             }
         }
@@ -237,47 +249,44 @@ void FindClosestInLane(vector<double> sensor_fusion, int prev_size, double car_s
     else if((obj_d > 4) && (obj_d < 8))
     {
         /* Car is in middle lane */
-        car_lane = 1;
-        if(obj_s > car_s) 
+        if(car_dist > 0)  
         {   
             /* Car is ahead of Ego */
-            if(obj_s < frontMidNearestDist)
+            if(car_dist < nearestDist.frontMidNearestDist)
             {
-                 frontMidNearestDist = obj_s;
+                 nearestDist.frontMidNearestDist = car_dist;
                  speedFrontMid = obj_speed;
             } 
         }
         else
         { 
             /* Car is behind Ego */
-            if(abs(obj_s) < backMidNearestDist)
+            if(abs(car_dist) < nearestDist.backMidNearestDist)
             {
-                backMidNearestDist = obj_s;
+                nearestDist.backMidNearestDist = abs(car_dist);
                 speedBackMid = obj_speed;
             }
         }
-
     }
 
     else if((obj_d > 8) && (obj_d < 12))
     {
         /* Car is in middle lane */
-        car_lane = 2;
-        if(obj_s > car_s) 
+        if(car_dist > 0) 
         {   
             /* Car is ahead of Ego */
-            if(obj_s < frontRightNearestDist)
+            if(car_dist < nearestDist.frontRightNearestDist)
             {
-                 frontRightNearestDist = obj_s;
+                 nearestDist.frontRightNearestDist = obj_s;
                  speedFrontRight = obj_speed;
             } 
         }
         else
         { 
             /* Car is behind Ego */
-            if(abs(obj_s) < backRightNearestDist)
+            if(abs(car_dist) < nearestDist.backRightNearestDist)
             {
-                backRightNearestDist = obj_s;
+                nearestDist.backRightNearestDist = abs(car_dist);
                 speedBackRight = obj_speed;
             }
         }
@@ -405,42 +414,59 @@ int main() {
             bool too_close_left = false;
             bool too_close_right = false;
 
+            lane_dist nearestDist; 
+            nearestDist.frontLeftNearestDist = MAX_DIST;
+            nearestDist.frontMidNearestDist   = MAX_DIST;
+            nearestDist.frontRightNearestDist = MAX_DIST;
+            nearestDist.backLeftNearestDist   = MAX_DIST;
+            nearestDist.backMidNearestDist    = MAX_DIST;
+            nearestDist.backRightNearestDist  = MAX_DIST;
+
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
                 float d = sensor_fusion[i][6];
-                int car_lane = -1;
 
-                FindClosestInLane(sensor_fusion[i], prev_size, car_s, car_lane);
+                FindClosestInAllLanes(sensor_fusion[i], prev_size, car_s, nearestDist);
 
-                if (car_lane < 0) 
+            }
+
+            if(lane == 0)
+            {    
+                if(nearestDist.frontLeftNearestDist < 30)
                 {
-                    continue;
+                    too_close_ahead = true;
                 }
-
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(vx*vx + vy*vy);
-                double check_car_s = sensor_fusion[i][5];
-
-                check_car_s += ((double)prev_size*0.02*check_speed);
-
-                if(lane == car_lane)
-                {                   
-                    if((check_car_s > car_s) && ((check_car_s - car_s) < 30))
-                    {
-                        //ref_vel = 29.5;
-                        too_close_ahead = true;
-                    }
-                }
-                else if(((car_lane - lane) == -1) && (abs(check_car_s - car_s) < 30))
-                {                   
-                    too_close_left = true;                        
-                }
-                else if(((car_lane - lane) == 1) && (abs(check_car_s - car_s) < 30))
+                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
                 {
                     too_close_right = true;
                 }
-                
+            }
+            else if(lane == 1)
+            {     
+
+                if(nearestDist.frontMidNearestDist < 30)
+                {
+                    too_close_ahead = true;
+                }
+                if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 20))
+                {
+                    too_close_right = true;
+                } 
+                if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 20))
+                {
+                    too_close_left = true;
+                }                        
+            }
+            if(lane == 2)
+            {    
+                if(nearestDist.frontRightNearestDist < 30)
+                {
+                    too_close_ahead = true;
+                }
+                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
+                {
+                    too_close_left = true;
+                }
             }
 
             if(too_close_ahead)
