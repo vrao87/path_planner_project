@@ -10,6 +10,8 @@
 #include "json.hpp"
 #include "spline.h"
 
+#define MAX_DIST 1000.0
+#define MAX_COST_FRONT 1000.0
 
 using namespace std;
 
@@ -165,6 +167,153 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+enum lane
+{
+    left = 0,
+    middle,
+    right,
+    invalid
+};
+
+double laneCostFront = MAX_COST_FRONT;
+double laneCostLeft = MAX_COST_FRONT;
+double laneCostRight = MAX_COST_FRONT;
+
+double frontLeftNearestDist = MAX_DIST;
+double frontMidNearestDist = MAX_DIST;
+double frontRightNearestDist = MAX_DIST;
+double backLeftNearestDist = MAX_DIST;
+double backMidNearestDist = MAX_DIST;
+double backRightNearestDist = MAX_DIST;
+
+double speedFrontLeft;
+double speedBackLeft;
+
+double speedFrontMid;
+double speedBackMid;
+
+double speedFrontRight;
+double speedBackRight;
+
+
+
+void FindClosestInLane(vector<double> sensor_fusion, int prev_size, double car_s, int &car_lane)
+{
+    /* Distance and speed of nearest vehicle in each lane */
+
+    double obj_vx = sensor_fusion[3];
+    double obj_vy = sensor_fusion[4];
+    double obj_s = sensor_fusion[5];
+    double obj_d = sensor_fusion[6];
+    double obj_speed = sqrt(obj_vx * obj_vx + obj_vy * obj_vy);
+
+    obj_s +=  ((double)prev_size * 0.02 * obj_speed);
+
+    if((obj_d > 0) && (obj_d < 4))
+    {
+        /* Car is in leftmost lane */
+        car_lane = 0;
+        if(obj_s > car_s) 
+        {   
+            /* Car is ahead of Ego */
+            if(obj_s < frontLeftNearestDist)
+            {
+                 frontLeftNearestDist = obj_s;
+                 speedFrontLeft = obj_speed;
+            } 
+        }
+        else
+        { 
+            /* Car is behind Ego */
+            if(abs(obj_s) < backLeftNearestDist)
+            {
+                backLeftNearestDist = obj_s;
+                speedBackLeft = obj_speed;
+            }
+        }
+
+    }
+
+    else if((obj_d > 4) && (obj_d < 8))
+    {
+        /* Car is in middle lane */
+        car_lane = 1;
+        if(obj_s > car_s) 
+        {   
+            /* Car is ahead of Ego */
+            if(obj_s < frontMidNearestDist)
+            {
+                 frontMidNearestDist = obj_s;
+                 speedFrontMid = obj_speed;
+            } 
+        }
+        else
+        { 
+            /* Car is behind Ego */
+            if(abs(obj_s) < backMidNearestDist)
+            {
+                backMidNearestDist = obj_s;
+                speedBackMid = obj_speed;
+            }
+        }
+
+    }
+
+    else if((obj_d > 8) && (obj_d < 12))
+    {
+        /* Car is in middle lane */
+        car_lane = 2;
+        if(obj_s > car_s) 
+        {   
+            /* Car is ahead of Ego */
+            if(obj_s < frontRightNearestDist)
+            {
+                 frontRightNearestDist = obj_s;
+                 speedFrontRight = obj_speed;
+            } 
+        }
+        else
+        { 
+            /* Car is behind Ego */
+            if(abs(obj_s) < backRightNearestDist)
+            {
+                backRightNearestDist = obj_s;
+                speedBackRight = obj_speed;
+            }
+        }
+    }
+
+    else
+    {
+
+    }
+}
+
+float CalculateLaneCost()
+{
+
+    /* Cost based on distance to nearest vehicle in each lane */
+
+
+    /* Cost based on speed of nearest vehicle in each lane */
+
+    /* Total cost */
+  return 1000.0;
+
+}
+
+int selectBestLane()
+{
+
+    return 1;
+}
+
+int changeToBestLane()
+{
+    return 1;   
+}
+
+
 int main() {
   uWS::Hub h;
 
@@ -260,16 +409,9 @@ int main() {
             {
                 float d = sensor_fusion[i][6];
                 int car_lane = -1;
-                if ( d > 0 && d < 4 ) 
-                {
-                    car_lane = 0;
-                } else if ( d > 4 && d < 8 ) 
-                {
-                    car_lane = 1;
-                } else if ( d > 8 && d < 12 ) 
-                {
-                    car_lane = 2;
-                }
+
+                FindClosestInLane(sensor_fusion[i], prev_size, car_s, car_lane);
+
                 if (car_lane < 0) 
                 {
                     continue;
