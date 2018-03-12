@@ -273,13 +273,13 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
 
     else if((obj_d > 8) && (obj_d < 12))
     {
-        /* Car is in middle lane */
+        /* Car is in rightmost lane */
         if(car_dist > 0) 
         {   
             /* Car is ahead of Ego */
             if(car_dist < nearestDist.frontRightNearestDist)
             {
-                 nearestDist.frontRightNearestDist = obj_s;
+                 nearestDist.frontRightNearestDist = car_dist;
                  nearestDist.speedFrontRight = obj_speed;
             } 
         }
@@ -302,7 +302,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
 
 void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead, bool &too_close_right, bool &too_close_left)
 {
-    if(lane == 0)
+     if(lane == 0)
             {    
                 if(nearestDist.frontLeftNearestDist < 30)
                 {
@@ -339,22 +339,22 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
                 {
                     too_close_left = true;
                 }
-            }
+            }   
 }
 
-vector<double> CalculateLaneCost(lane_dist &nearestDist)
+vector<double> CalculateLaneCost(lane_dist nearestDist)
 {
-    vector<double> lane_cost;
+    double lane_cost_left, lane_cost_mid, lane_cost_right ;
 
     /* Cost based on distance to nearest vehicle in each lane */
-        lane_cost[0] = DIST_WEIGHT * (laneCostMax - nearestDist.frontLeftNearestDist - nearestDist.backLeftNearestDist);
-        lane_cost[1] = DIST_WEIGHT * (laneCostMax - nearestDist.frontMidNearestDist - nearestDist.backMidNearestDist);
-        lane_cost[2] = DIST_WEIGHT * (laneCostMax - nearestDist.frontRightNearestDist - nearestDist.backRightNearestDist);
+    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist - nearestDist.backLeftNearestDist);
+    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist - nearestDist.backMidNearestDist);
+    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist - nearestDist.backRightNearestDist);
 
     /* Cost based on speed of nearest vehicle in each lane */
 
     /* Total cost */
-  return lane_cost;
+  return {lane_cost_left, lane_cost_mid, lane_cost_right};
 
 }
 
@@ -364,6 +364,7 @@ int selectBestLane(vector<double> lane_cost)
     int best_lane;
 
     min_cost = lane_cost[0];
+    best_lane = 0;
     for(int i = 1; i< 3; i++)
     {
         if(lane_cost[i] < min_cost)
@@ -492,15 +493,17 @@ int main() {
 
             vector<double> lane_cost;
 
-            //lane_cost = CalculateLaneCost(nearestDist);
+            lane_cost = CalculateLaneCost(nearestDist);
 
+            printf("lane costs: %f %f %f \n", lane_cost[0], lane_cost[1], lane_cost[2]);
             int best_lane;
 
-           // best_lane = selectBestLane(lane_cost);
+            best_lane = selectBestLane(lane_cost);
+
+            printf("best lane %d\n", best_lane);
 
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
             
-
             if(too_close_ahead)
             {
                 if ( !too_close_left && lane > 0 ) 
