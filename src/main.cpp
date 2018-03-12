@@ -11,7 +11,7 @@
 #include "spline.h"
 
 #define MAX_DIST 1000.0
-#define MAX_COST_FRONT 1000.0
+#define LANE_MAX_COST 1000.0
 
 using namespace std;
 
@@ -184,24 +184,26 @@ typedef struct
   double backLeftNearestDist;
   double backMidNearestDist;
   double backRightNearestDist;
+
+  double speedFrontLeft;
+  double speedBackLeft;
+  double speedFrontMid;
+  double speedBackMid;
+  double speedFrontRight;
+  double speedBackRight;
   
 }lane_dist;
 
+typedef struct
+{
+    double c_speed;
+    double c_dist;
+}cost;
+
 #define MAX_DIR 6
+#define DIST_WEIGHT 0.6
 
-double laneCostFront = MAX_COST_FRONT;
-double laneCostLeft = MAX_COST_FRONT;
-double laneCostRight = MAX_COST_FRONT;
-
-double speedFrontLeft;
-double speedBackLeft;
-
-double speedFrontMid;
-double speedBackMid;
-
-double speedFrontRight;
-double speedBackRight;
-
+double laneCostMax = LANE_MAX_COST;
 
 
 void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_s, lane_dist & nearestDist)
@@ -231,7 +233,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
             {
               //printf("car dist %f\n", car_dist);
                  nearestDist.frontLeftNearestDist = car_dist;
-                 speedFrontLeft = obj_speed;
+                 nearestDist.speedFrontLeft = obj_speed;
             }
         }
         else
@@ -240,7 +242,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
             if(abs(car_dist) < nearestDist.backLeftNearestDist)
             {
                 nearestDist.backLeftNearestDist = abs(car_dist);
-                speedBackLeft = obj_speed;
+                nearestDist.speedBackLeft = obj_speed;
             }
         }
 
@@ -255,7 +257,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
             if(car_dist < nearestDist.frontMidNearestDist)
             {
                  nearestDist.frontMidNearestDist = car_dist;
-                 speedFrontMid = obj_speed;
+                 nearestDist.speedFrontMid = obj_speed;
             } 
         }
         else
@@ -264,7 +266,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
             if(abs(car_dist) < nearestDist.backMidNearestDist)
             {
                 nearestDist.backMidNearestDist = abs(car_dist);
-                speedBackMid = obj_speed;
+                nearestDist.speedBackMid = obj_speed;
             }
         }
     }
@@ -278,7 +280,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
             if(car_dist < nearestDist.frontRightNearestDist)
             {
                  nearestDist.frontRightNearestDist = obj_s;
-                 speedFrontRight = obj_speed;
+                 nearestDist.speedFrontRight = obj_speed;
             } 
         }
         else
@@ -287,7 +289,7 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
             if(abs(car_dist) < nearestDist.backRightNearestDist)
             {
                 nearestDist.backRightNearestDist = abs(car_dist);
-                speedBackRight = obj_speed;
+                nearestDist.speedBackRight = obj_speed;
             }
         }
     }
@@ -298,24 +300,82 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
     }
 }
 
-float CalculateLaneCost()
+void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead, bool &too_close_right, bool &too_close_left)
 {
+    if(lane == 0)
+            {    
+                if(nearestDist.frontLeftNearestDist < 30)
+                {
+                    too_close_ahead = true;
+                }
+                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
+                {
+                    too_close_right = true;
+                }
+            }
+            else if(lane == 1)
+            {     
+
+                if(nearestDist.frontMidNearestDist < 30)
+                {
+                    too_close_ahead = true;
+                }
+                if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 20))
+                {
+                    too_close_right = true;
+                } 
+                if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 20))
+                {
+                    too_close_left = true;
+                }                        
+            }
+            if(lane == 2)
+            {    
+                if(nearestDist.frontRightNearestDist < 30)
+                {
+                    too_close_ahead = true;
+                }
+                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
+                {
+                    too_close_left = true;
+                }
+            }
+}
+
+vector<double> CalculateLaneCost(lane_dist &nearestDist)
+{
+    vector<double> lane_cost;
 
     /* Cost based on distance to nearest vehicle in each lane */
-
+        lane_cost[0] = DIST_WEIGHT * (laneCostMax - nearestDist.frontLeftNearestDist - nearestDist.backLeftNearestDist);
+        lane_cost[1] = DIST_WEIGHT * (laneCostMax - nearestDist.frontMidNearestDist - nearestDist.backMidNearestDist);
+        lane_cost[2] = DIST_WEIGHT * (laneCostMax - nearestDist.frontRightNearestDist - nearestDist.backRightNearestDist);
 
     /* Cost based on speed of nearest vehicle in each lane */
 
     /* Total cost */
-  return 1000.0;
+  return lane_cost;
 
 }
 
-int selectBestLane()
+int selectBestLane(vector<double> lane_cost)
 {
+    double min_cost;
+    int best_lane;
 
-    return 1;
+    min_cost = lane_cost[0];
+    for(int i = 1; i< 3; i++)
+    {
+        if(lane_cost[i] < min_cost)
+        {
+            min_cost = lane_cost[i];
+            best_lane = i;
+        }
+    }
+
+    return best_lane;
 }
+
 
 int changeToBestLane()
 {
@@ -430,44 +490,16 @@ int main() {
 
             }
 
-            if(lane == 0)
-            {    
-                if(nearestDist.frontLeftNearestDist < 30)
-                {
-                    too_close_ahead = true;
-                }
-                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
-                {
-                    too_close_right = true;
-                }
-            }
-            else if(lane == 1)
-            {     
+            vector<double> lane_cost;
 
-                if(nearestDist.frontMidNearestDist < 30)
-                {
-                    too_close_ahead = true;
-                }
-                if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 20))
-                {
-                    too_close_right = true;
-                } 
-                if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 20))
-                {
-                    too_close_left = true;
-                }                        
-            }
-            if(lane == 2)
-            {    
-                if(nearestDist.frontRightNearestDist < 30)
-                {
-                    too_close_ahead = true;
-                }
-                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
-                {
-                    too_close_left = true;
-                }
-            }
+            //lane_cost = CalculateLaneCost(nearestDist);
+
+            int best_lane;
+
+           // best_lane = selectBestLane(lane_cost);
+
+            checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
+            
 
             if(too_close_ahead)
             {
