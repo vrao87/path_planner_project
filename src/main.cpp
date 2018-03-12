@@ -347,9 +347,9 @@ vector<double> CalculateLaneCost(lane_dist nearestDist)
     double lane_cost_left, lane_cost_mid, lane_cost_right ;
 
     /* Cost based on distance to nearest vehicle in each lane */
-    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist - nearestDist.backLeftNearestDist);
-    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist - nearestDist.backMidNearestDist);
-    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist - nearestDist.backRightNearestDist);
+    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist);
+    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist);
+    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist);
 
     /* Cost based on speed of nearest vehicle in each lane */
 
@@ -503,7 +503,7 @@ int main() {
             printf("best lane %d\n", best_lane);
 
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
-            
+
             if(too_close_ahead)
             {
                 if ( !too_close_left && lane > 0 ) 
@@ -525,7 +525,7 @@ int main() {
             }
             else 
             {
-                if ( lane != 1 ) 
+                if ( lane != best_lane ) 
                 {   // if we are not on the center lane.
                     if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
                     {
