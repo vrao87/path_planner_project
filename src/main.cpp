@@ -303,43 +303,43 @@ void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_
 void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead, bool &too_close_right, bool &too_close_left)
 {
      if(lane == 0)
-            {    
-                if(nearestDist.frontLeftNearestDist < 30)
-                {
-                    too_close_ahead = true;
-                }
-                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
-                {
-                    too_close_right = true;
-                }
-            }
-            else if(lane == 1)
-            {     
+      {    
+          if(nearestDist.frontLeftNearestDist < 30)
+          {
+              too_close_ahead = true;
+          }
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
+          {
+              too_close_right = true;
+          }
+      }
+      else if(lane == 1)
+      {     
 
-                if(nearestDist.frontMidNearestDist < 30)
-                {
-                    too_close_ahead = true;
-                }
-                if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 20))
-                {
-                    too_close_right = true;
-                } 
-                if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 20))
-                {
-                    too_close_left = true;
-                }                        
-            }
-            if(lane == 2)
-            {    
-                if(nearestDist.frontRightNearestDist < 30)
-                {
-                    too_close_ahead = true;
-                }
-                if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
-                {
-                    too_close_left = true;
-                }
-            }   
+          if(nearestDist.frontMidNearestDist < 30)
+          {
+              too_close_ahead = true;
+          }
+          if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 20))
+          {
+              too_close_right = true;
+          } 
+          if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 20))
+          {
+              too_close_left = true;
+          }                        
+      }
+      if(lane == 2)
+      {    
+          if(nearestDist.frontRightNearestDist < 30)
+          {
+              too_close_ahead = true;
+          }
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
+          {
+              too_close_left = true;
+          }
+      }   
 }
 
 vector<double> CalculateLaneCost(lane_dist nearestDist)
@@ -525,7 +525,7 @@ int main() {
             }
             else 
             {
-                if ( lane != best_lane ) 
+                if ( lane != 1 ) 
                 {   // if we are not on the center lane.
                     if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
                     {
