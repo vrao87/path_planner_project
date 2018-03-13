@@ -186,16 +186,12 @@ typedef struct
   
 }lane_dist;
 
-typedef struct
-{
-    double c_speed;
-    double c_dist;
-}cost;
-
 #define MAX_DIR 6
 #define DIST_WEIGHT 0.6
+#define LANE_CONFIDENCE_THRESHOLD 50
 
 double laneCostMax = LANE_MAX_COST;
+int lane_confidence_level = 0;
 
 
 void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_s, lane_dist & nearestDist)
@@ -327,7 +323,7 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
           {
               too_close_ahead = true;
           }
-          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
           {
               too_close_left = true;
           }
@@ -358,6 +354,32 @@ int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, doub
 
 int switchToBestLane(bool too_close_right, bool too_close_left, int lane, int best_lane, double &ref_vel)
 {
+    if ( (lane != best_lane )&& (lane_confidence_level>=50)) 
+    {   
+        if(abs(best_lane - lane) > 1)
+        {
+            // TODO Should double lane change be allowed??
+        }
+        else if(((best_lane - lane) == 1) && !too_close_right)
+        {
+            // change to right lane
+            lane++;
+        }
+        else if(((best_lane - lane) == -1) && !too_close_left)
+        {
+            // change to left lane
+            lane--;
+        }
+        else
+        {
+            // Current lane is best lane. Do nothing
+        }
+    }
+    if(ref_vel < 49.5)
+    {
+        // If not too close to another vehicle, increase the speed
+        ref_vel += 0.224;
+    }
     return lane;
 }
 
@@ -366,9 +388,9 @@ vector<double> CalculateLaneCost(lane_dist nearestDist)
     double lane_cost_left, lane_cost_mid, lane_cost_right ;
 
     /* Cost based on distance to nearest vehicle in each lane */
-    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist);
-    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist);
-    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist);
+    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist - ((nearestDist.backLeftNearestDist < 20) ? nearestDist.backLeftNearestDist : MAX_DIST));
+    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist - ((nearestDist.backMidNearestDist < 20) ? nearestDist.backMidNearestDist : MAX_DIST));
+    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist - ((nearestDist.backRightNearestDist < 20) ? nearestDist.backRightNearestDist : MAX_DIST));
 
     /* Cost based on speed of nearest vehicle in each lane */
 
@@ -437,6 +459,7 @@ int main() {
 
   // Set the starting lane
   int lane = 1;
+  static int best_lane_prev = -1;
 
   // Set the reference velocity
   double ref_vel = 0.0;
@@ -514,31 +537,39 @@ int main() {
 
             best_lane = selectBestLane(lane_cost);
 
+            if(best_lane_prev != best_lane)
+            {
+                lane_confidence_level = 0;
+            }
+            else
+            {
+                lane_confidence_level = ((lane_confidence_level>=50) ? lane_confidence_level : ++lane_confidence_level);
+            }
+            best_lane_prev = best_lane;
+
             printf("best lane %d\n", best_lane);
 
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
 
             if(too_close_ahead)
             {
-
-                lane = collisionAvoidance(too_close_left, too_close_right, lane, ref_vel);
-                
+                lane = collisionAvoidance(too_close_left, too_close_right, lane, ref_vel);               
             }
             else 
             {
+                // if ( lane != best_lane ) 
+                // {   // if we are not on the center lane.
+                //     if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
+                //     {
+                //         lane = 1; // Back to center.
+                //     }
+                // }
+                // if(ref_vel < 49.5)
+                // {
+                //     // If not too close to another vehicle, increase the speed
+                //     ref_vel += 0.224;
+                // }
                 lane = switchToBestLane(too_close_right, too_close_left, lane, best_lane, ref_vel);
-                if ( lane != 1 ) 
-                {   // if we are not on the center lane.
-                    if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
-                    {
-                        lane = 1; // Back to center.
-                    }
-                }
-                if(ref_vel < 49.5)
-                {
-                    // If not too close to another vehicle, increase the speed
-                    ref_vel += 0.224;
-                }
             }
             
             vector<double> ptsx;
