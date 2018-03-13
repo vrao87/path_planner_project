@@ -342,6 +342,28 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
       }   
 }
 
+int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, double  &ref_vel)
+{
+    int next_lane;
+
+    if ( !too_close_left && lane > 0 ) 
+    {
+        // if there is no car left and there is a left lane.
+        next_lane = lane-1; // Change lane left.
+    }
+    else if ( !too_close_right && lane != 2 )
+    {
+        // if there is no car right and there is a right lane.
+        next_lane = lane+1; // Change lane right.
+    } 
+    else 
+    {
+        // Reduce speed
+        ref_vel -= 0.224;
+    }
+    return next_lane;
+}
+
 vector<double> CalculateLaneCost(lane_dist nearestDist)
 {
     double lane_cost_left, lane_cost_mid, lane_cost_right ;
@@ -506,21 +528,8 @@ int main() {
 
             if(too_close_ahead)
             {
-                if ( !too_close_left && lane > 0 ) 
-                {
-                    // if there is no car left and there is a left lane.
-                    lane--; // Change lane left.
-                }
-                else if ( !too_close_right && lane != 2 )
-                {
-                    // if there is no car right and there is a right lane.
-                    lane++; // Change lane right.
-                } 
-                else 
-                {
-                    // Reduce speed
-                    ref_vel -= 0.224;
-                }
+
+                lane = collisionAvoidance(too_close_left, too_close_right, lane, ref_vel);
                 
             }
             else 
