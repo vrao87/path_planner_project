@@ -167,14 +167,6 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
-enum lane
-{
-    left = 0,
-    middle,
-    right,
-    invalid
-};
-
 
 typedef struct 
 {
@@ -344,7 +336,7 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
 
 int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, double  &ref_vel)
 {
-    int next_lane;
+    int next_lane = lane;
 
     if ( !too_close_left && lane > 0 ) 
     {
@@ -362,6 +354,11 @@ int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, doub
         ref_vel -= 0.224;
     }
     return next_lane;
+}
+
+int switchToBestLane(bool too_close_right, bool too_close_left, int lane, int best_lane, double &ref_vel)
+{
+    return lane;
 }
 
 vector<double> CalculateLaneCost(lane_dist nearestDist)
@@ -399,11 +396,6 @@ int selectBestLane(vector<double> lane_cost)
     return best_lane;
 }
 
-
-int changeToBestLane()
-{
-    return 1;   
-}
 
 
 int main() {
@@ -534,6 +526,7 @@ int main() {
             }
             else 
             {
+                lane = switchToBestLane(too_close_right, too_close_left, lane, best_lane, ref_vel);
                 if ( lane != 1 ) 
                 {   // if we are not on the center lane.
                     if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
