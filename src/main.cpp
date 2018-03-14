@@ -355,33 +355,31 @@ int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, doub
 
 int switchToBestLane(bool too_close_right, bool too_close_left, int lane, int best_lane, double &ref_vel)
 {
-    if ( (lane != best_lane )&& (lane_confidence_level>=50)) 
+    int next_lane = lane;
+    if ( (lane != best_lane )) 
     {   
         if(abs(best_lane - lane) > 1)
         {
             // TODO Should double lane change be allowed??
+          printf("Double lane change !!! \n");
         }
         else if(((best_lane - lane) == 1) && !too_close_right)
         {
             // change to right lane
-            lane++;
+            next_lane = lane+1;
         }
         else if(((best_lane - lane) == -1) && !too_close_left)
         {
             // change to left lane
-            lane--;
+            next_lane = lane-1;
         }
         else
         {
             // Current lane is best lane. Do nothing
         }
     }
-    if(ref_vel < 49.5)
-    {
-        // If not too close to another vehicle, increase the speed
-        ref_vel += 0.224;
-    }
-    return lane;
+
+    return next_lane;
 }
 
 vector<double> CalculateLaneCost(lane_dist nearestDist)
@@ -460,6 +458,7 @@ int main() {
 
   // Set the starting lane
   int lane = 1;
+  static int lane_prev = lane;
   static int best_lane_prev = -1;
 
   // Set the reference velocity
@@ -534,9 +533,20 @@ int main() {
             lane_cost = CalculateLaneCost(nearestDist);
 
             printf("lane costs: %f %f %f \n", lane_cost[0], lane_cost[1], lane_cost[2]);
+            
             int best_lane;
 
-            best_lane = selectBestLane(lane_cost);
+            if(lane_hysteresis < 100)
+            {
+                lane_hysteresis++;               
+                best_lane = lane;
+            }
+            else
+            {
+                best_lane = selectBestLane(lane_cost);
+            }
+
+            printf("Lane lane_hysteresis %d\n", lane_hysteresis); 
 
             if(best_lane_prev != best_lane)
             {
@@ -544,13 +554,16 @@ int main() {
             }
             else
             {
-                lane_confidence_level = ((lane_confidence_level>=50) ? lane_confidence_level : ++lane_confidence_level);
+                lane_confidence_level = ((lane_confidence_level>=30) ? lane_confidence_level : ++lane_confidence_level);
             }
+            printf("lane confidence level %d\n", lane_confidence_level );
             best_lane_prev = best_lane;
 
             printf("best lane %d\n", best_lane);
 
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
+
+            printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
 
             if(too_close_ahead)
             {
@@ -570,8 +583,19 @@ int main() {
                 //     // If not too close to another vehicle, increase the speed
                 //     ref_vel += 0.224;
                 // }
-              
-                lane = switchToBestLane(too_close_right, too_close_left, lane, best_lane, ref_vel);
+                if(lane_confidence_level< 30)
+                {
+                     // Wait for lane change
+                }
+                else
+                {
+                    lane = switchToBestLane(too_close_right, too_close_left, lane, best_lane, ref_vel);
+                }
+                if(ref_vel < 49.5)
+                {
+                    // If not too close to another vehicle, increase the speed
+                    ref_vel += 0.224;
+                }
             }
             
             vector<double> ptsx;
@@ -610,6 +634,14 @@ int main() {
                 ptsy.push_back(ref_y);
 
             }
+
+            if(abs(lane_prev - lane) > 1)
+            {
+                printf("Evasive lane change");
+                assert(0);
+            }
+
+            lane_prev = lane;
 
             vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
             vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
