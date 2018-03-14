@@ -1,1 +1,25 @@
-# path_planner_project
+# CarND path planning project term3 P1
+## Overview
+In this project, we need to implement a path planning algorithms to drive a car on a highway on a simulator provided by Udacity. he simulator sends car telemetry information (car's position and velocity) and sensor fusion information about the rest of the cars in the highway (Ex. car id, velocity, position). It expects a set of points spaced in time at 0.02 seconds representing the car's trajectory. The communication between the simulator and the path planner is done using websocket.Udacity provides a seed project to start from on this project.
+Main goal is to utilize the information from the simulator and performing situation analysis to keep the car free from colliding and also optimizing the car's trajectory by choosing the best lane, at the same time ensuring that car remains within speed limit.
+
+## Pre-requisites
+The project has the following dependencies (from Udacity's seed project):
+
+* cmake >= 3.5
+* make >= 4.1
+* gcc/g++ >= 5.4
+* libuv 1.12.0
+* Udacity's simulator.
+
+## Implementation details
+Implementation is based on start up code presented in project walk through in the class. 
+The algorithm performs the following steps:
+* Read sensor fusion data from simulator
+* Identify the position of EGO and other vehicles on the road.
+* Detect collision by checking for vehicles in 30m vicinity ahead, to the right and to the left of the the EGO vehicle
+* If a collision ahead is detected, check if lane change to the right or left is possible provided no collision was
+detected side ways.
+* If lane change is possible, then change lane immediately
+* If lane change is not possible, then reduce the speed of EGO vehicle in steps such that total acceleration and jerk values are within the limit.(Here a value of 0.224 is choosen as step size for speed increase/decrease which turns out to be maximum allowed acceleration of 5m/s)
+If a collision ahead is not detected, then EGO attempts to switch to a best lane provided there is no risk of collision in such a maneuver.
