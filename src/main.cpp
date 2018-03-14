@@ -192,6 +192,7 @@ typedef struct
 
 double laneCostMax = LANE_MAX_COST;
 int lane_confidence_level = 0;
+int lane_hysteresis = 0;
 
 
 void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_s, lane_dist & nearestDist)
@@ -296,7 +297,7 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
           {
               too_close_ahead = true;
           }
-          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
           {
               too_close_right = true;
           }
@@ -308,11 +309,11 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
           {
               too_close_ahead = true;
           }
-          if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 20))
+          if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 30))
           {
               too_close_right = true;
           } 
-          if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 20))
+          if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 30))
           {
               too_close_left = true;
           }                        
@@ -323,11 +324,11 @@ void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead,
           {
               too_close_ahead = true;
           }
-          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 20))
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
           {
               too_close_left = true;
           }
-      }   
+      }
 }
 
 int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, double  &ref_vel)
@@ -569,6 +570,7 @@ int main() {
                 //     // If not too close to another vehicle, increase the speed
                 //     ref_vel += 0.224;
                 // }
+              
                 lane = switchToBestLane(too_close_right, too_close_left, lane, best_lane, ref_vel);
             }
             
