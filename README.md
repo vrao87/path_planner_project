@@ -31,5 +31,9 @@ For lane trajectory generation, spline points is used. Using end of previous pat
 In each cycle, at the most 50 path points are generated depending on how many points from previous path are consumed.
 
 ## Best lane
+When there is no immediate risk of forward collision, the car attempts to switch to lane where the distance to nearest vehicle is maximum. The idea is to ensure that car avoids being in the situation where it might get to close to another vehicle in first place. In this way, the need to slow down is reduced as much as possible. This is accomplished by using a cost function based on longitudinal distance between the EGO and other vehicles in each lane. Each lane is then assigned a cost. The lane with minimum cost is the preferred lane. Car then attempts to switch to the lane with minimum cost provided there are no vehices too close to the left or right(depending on direction of lane change).
+Double lane change is not allowed in this implementation since it is generally a risky maneuver in real traffic. Also, it results in jerk exceeding the limit unless speed is reduced or lane change trajectory spans much larger longitudinal distance.
+
+Every time a new best lane is selected, it is necessary that a certain time has passed before the car decides to switch to new best lane(only after checking for lateral collision). This is to avoid slalom movement of the car due to rapid toggling of best lane which may happen in dense traffic. Also, when the car starts first time, the current lane is retained as best lane for a certain time to allow for cost to be computed properly for all lanes.
 
 
