@@ -20,6 +20,16 @@ The algorithm performs the following steps:
 * Detect collision by checking for vehicles in 30m vicinity ahead, to the right and to the left of the the EGO vehicle
 * If a collision ahead is detected, check if lane change to the right or left is possible provided no collision was
 detected side ways.
-* If lane change is possible, then change lane immediately
-* If lane change is not possible, then reduce the speed of EGO vehicle in steps such that total acceleration and jerk values are within the limit.(Here a value of 0.224 is choosen as step size for speed increase/decrease which turns out to be maximum allowed acceleration of 5m/s)
-If a collision ahead is not detected, then EGO attempts to switch to a best lane provided there is no risk of collision in such a maneuver.
+* If lane change is possible, then change lane immediately. First, left lane is checked for collision. If left lane is free, then a change to left lane is performed. If left lane is not free, right lane change is performed.
+* If lane change is not possible, then reduce the speed of EGO vehicle in steps such that total acceleration and jerk values are within the limit.(Here a value of 0.224 is choosen as step size for speed increase/decrease which turns out to be maximum allowed acceleration of 5m/s). 
+* Once collision is no longer detected, speed is again increased to 50mph in steps of 0.224 mps.
+If a collision ahead is not detected, then EGO attempts to switch to a best lane provided there is no risk of collision in such a maneuver. Best lane is chosen based on the cost associated with each lane.
+In the current implementation, double lane change is not allowed since it was observed that a double lane change often resulted jerk increasing beyond the limits unless speed is reduced.
+
+## Trajectory formation
+For lane trajectory generation, spline points is used. Using end of previous path or current state of the car(if previous path points are all used up) and another 3 optimally spaced points(which considers lane change), spline is fit to generate future points.
+In each cycle, at the most 50 path points are generated depending on how many points from previous path are consumed.
+
+## Best lane
+
+
