@@ -10,7 +10,7 @@
 #include "json.hpp"
 #include "spline.h"
 
-#define MAX_DIST 1000.0
+#define MAX_VAL 1000.0
 #define LANE_MAX_COST 1000.0
 
 using namespace std;
@@ -186,8 +186,9 @@ typedef struct
   
 }lane_dist;
 
-#define MAX_DIR 6
+
 #define DIST_WEIGHT 0.6
+#define SPEED_WEIGHT 0.7
 #define LANE_CONFIDENCE_THRESHOLD 50
 
 double laneCostMax = LANE_MAX_COST;
@@ -387,11 +388,14 @@ vector<double> CalculateLaneCost(lane_dist nearestDist)
     double lane_cost_left, lane_cost_mid, lane_cost_right ;
 
     /* Cost based on distance to nearest vehicle in each lane */
-    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist - ((nearestDist.backLeftNearestDist < 20) ? nearestDist.backLeftNearestDist : MAX_DIST));
-    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist - ((nearestDist.backMidNearestDist < 20) ? nearestDist.backMidNearestDist : MAX_DIST));
-    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist - ((nearestDist.backRightNearestDist < 20) ? nearestDist.backRightNearestDist : MAX_DIST));
+    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist - ((nearestDist.backLeftNearestDist < 20) ? nearestDist.backLeftNearestDist : MAX_VAL));
+    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist - ((nearestDist.backMidNearestDist < 20) ? nearestDist.backMidNearestDist : MAX_VAL));
+    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist - ((nearestDist.backRightNearestDist < 20) ? nearestDist.backRightNearestDist : MAX_VAL));
 
     /* Cost based on speed of nearest vehicle in each lane */
+    lane_cost_left += SPEED_WEIGHT * (2*laneCostMax - nearestDist.speedFrontLeft - ((nearestDist.backLeftNearestDist < 20) ? nearestDist.speedBackLeft : MAX_VAL));
+    lane_cost_mid += SPEED_WEIGHT * (2*laneCostMax - nearestDist.speedFrontMid - ((nearestDist.backMidNearestDist < 20) ? nearestDist.speedBackMid : MAX_VAL));
+    lane_cost_right+= SPEED_WEIGHT * (2*laneCostMax - nearestDist.speedFrontRight - ((nearestDist.backRightNearestDist < 20) ? nearestDist.speedBackRight : MAX_VAL));
 
     /* Total cost */
   return {lane_cost_left, lane_cost_mid, lane_cost_right};
@@ -513,12 +517,20 @@ int main() {
             bool too_close_right = false;
 
             lane_dist nearestDist; 
-            nearestDist.frontLeftNearestDist = MAX_DIST;
-            nearestDist.frontMidNearestDist   = MAX_DIST;
-            nearestDist.frontRightNearestDist = MAX_DIST;
-            nearestDist.backLeftNearestDist   = MAX_DIST;
-            nearestDist.backMidNearestDist    = MAX_DIST;
-            nearestDist.backRightNearestDist  = MAX_DIST;
+            nearestDist.frontLeftNearestDist = MAX_VAL;
+            nearestDist.frontMidNearestDist   = MAX_VAL;
+            nearestDist.frontRightNearestDist = MAX_VAL;
+            nearestDist.backLeftNearestDist   = MAX_VAL;
+            nearestDist.backMidNearestDist    = MAX_VAL;
+            nearestDist.backRightNearestDist  = MAX_VAL;
+
+            nearestDist.speedFrontLeft        = MAX_VAL;
+            nearestDist.speedFrontMid         = MAX_VAL;
+            nearestDist.speedFrontRight       = MAX_VAL;
+            nearestDist.speedBackLeft        = MAX_VAL;
+            nearestDist.speedBackMid         = MAX_VAL;
+            nearestDist.speedBackRight       = MAX_VAL;
+
 
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
@@ -529,12 +541,9 @@ int main() {
             }
 
             vector<double> lane_cost;
+            int best_lane;
 
             lane_cost = CalculateLaneCost(nearestDist);
-
-            printf("lane costs: %f %f %f \n", lane_cost[0], lane_cost[1], lane_cost[2]);
-            
-            int best_lane;
 
             if(lane_hysteresis < 100)
             {
@@ -546,24 +555,24 @@ int main() {
                 best_lane = selectBestLane(lane_cost);
             }
 
-            printf("Lane lane_hysteresis %d\n", lane_hysteresis); 
-
             if(best_lane_prev != best_lane)
             {
                 lane_confidence_level = 0;
             }
             else
             {
-                lane_confidence_level = ((lane_confidence_level>=30) ? lane_confidence_level : ++lane_confidence_level);
-            }
-            printf("lane confidence level %d\n", lane_confidence_level );
+                lane_confidence_level = ((lane_confidence_level>=40) ? lane_confidence_level : ++lane_confidence_level);
+            }            
             best_lane_prev = best_lane;
-
-            printf("best lane %d\n", best_lane);
 
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
 
+            /*********************************** debug info *******************************************/
+            printf("best lane %d\n", best_lane);
+            printf("best lane confidence level %d\n", lane_confidence_level );
             printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
+            /*******************************************************************************************/
+
 
             if(too_close_ahead)
             {
@@ -583,7 +592,7 @@ int main() {
                 //     // If not too close to another vehicle, increase the speed
                 //     ref_vel += 0.224;
                 // }
-                if(lane_confidence_level< 30)
+                if(lane_confidence_level< 40)
                 {
                      // Wait for lane change
                 }
@@ -635,6 +644,7 @@ int main() {
 
             }
 
+            /* Ensure no double lane change happens */
             if(abs(lane_prev - lane) > 1)
             {
                 printf("Evasive lane change");
