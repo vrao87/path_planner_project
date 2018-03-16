@@ -10,6 +10,8 @@
 #include "json.hpp"
 #include "spline.h"
 
+#define MAX_VAL 1000.0
+#define LANE_MAX_COST 1000.0
 
 using namespace std;
 
@@ -165,6 +167,262 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+
+typedef struct 
+{
+  double frontLeftNearestDist;
+  double frontMidNearestDist;
+  double frontRightNearestDist;
+  double backLeftNearestDist;
+  double backMidNearestDist;
+  double backRightNearestDist;
+
+  double speedFrontLeft;
+  double speedBackLeft;
+  double speedFrontMid;
+  double speedBackMid;
+  double speedFrontRight;
+  double speedBackRight;
+  
+}lane_dist;
+
+
+#define DIST_WEIGHT 0.6
+#define SPEED_WEIGHT 0.7
+#define LANE_CONFIDENCE_THRESHOLD 50
+
+double laneCostMax = LANE_MAX_COST;
+int lane_confidence_level = 0;
+int lane_hysteresis = 0;
+
+
+void FindClosestInAllLanes(vector<double> fusion_obj, int prev_size, double car_s, lane_dist & nearestDist)
+{
+
+    /* Distance and speed of nearest vehicle in each lane */
+    double obj_vx = fusion_obj[3];
+    double obj_vy = fusion_obj[4];
+    double obj_s = fusion_obj[5];
+    double obj_d = fusion_obj[6];
+    double obj_speed = sqrt(obj_vx * obj_vx + obj_vy * obj_vy);
+
+
+
+    obj_s +=  ((double)prev_size * 0.02 * obj_speed);
+    double car_dist = obj_s - car_s;
+
+
+
+    if((obj_d > 0) && (obj_d < 4))
+    {
+        /* Car is in leftmost lane */
+        if(car_dist > 0) 
+        {   
+           /* Car is ahead of Ego */
+            if(car_dist < nearestDist.frontLeftNearestDist)
+            {
+              //printf("car dist %f\n", car_dist);
+                 nearestDist.frontLeftNearestDist = car_dist;
+                 nearestDist.speedFrontLeft = obj_speed;
+            }
+        }
+        else
+        { 
+            /* Car is behind Ego */
+            if(abs(car_dist) < nearestDist.backLeftNearestDist)
+            {
+                nearestDist.backLeftNearestDist = abs(car_dist);
+                nearestDist.speedBackLeft = obj_speed;
+            }
+        }
+
+    }
+
+    else if((obj_d > 4) && (obj_d < 8))
+    {
+        /* Car is in middle lane */
+        if(car_dist > 0)  
+        {   
+            /* Car is ahead of Ego */
+            if(car_dist < nearestDist.frontMidNearestDist)
+            {
+                 nearestDist.frontMidNearestDist = car_dist;
+                 nearestDist.speedFrontMid = obj_speed;
+            } 
+        }
+        else
+        { 
+            /* Car is behind Ego */
+            if(abs(car_dist) < nearestDist.backMidNearestDist)
+            {
+                nearestDist.backMidNearestDist = abs(car_dist);
+                nearestDist.speedBackMid = obj_speed;
+            }
+        }
+    }
+
+    else if((obj_d > 8) && (obj_d < 12))
+    {
+        /* Car is in rightmost lane */
+        if(car_dist > 0) 
+        {   
+            /* Car is ahead of Ego */
+            if(car_dist < nearestDist.frontRightNearestDist)
+            {
+                 nearestDist.frontRightNearestDist = car_dist;
+                 nearestDist.speedFrontRight = obj_speed;
+            } 
+        }
+        else
+        { 
+            /* Car is behind Ego */
+            if(abs(car_dist) < nearestDist.backRightNearestDist)
+            {
+                nearestDist.backRightNearestDist = abs(car_dist);
+                nearestDist.speedBackRight = obj_speed;
+            }
+        }
+    }
+
+    else
+    {
+
+    }
+}
+
+void checkCollisionAhead(int lane, lane_dist nearestDist, bool &too_close_ahead, bool &too_close_right, bool &too_close_left)
+{
+     if(lane == 0)
+      {    
+          if(nearestDist.frontLeftNearestDist < 30)
+          {
+              too_close_ahead = true;
+          }
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
+          {
+              too_close_right = true;
+          }
+      }
+      else if(lane == 1)
+      {     
+
+          if(nearestDist.frontMidNearestDist < 30)
+          {
+              too_close_ahead = true;
+          }
+          if((nearestDist.frontRightNearestDist < 30) || (abs(nearestDist.backRightNearestDist) < 30))
+          {
+              too_close_right = true;
+          } 
+          if((nearestDist.frontLeftNearestDist < 30) || (abs(nearestDist.backLeftNearestDist) < 30))
+          {
+              too_close_left = true;
+          }                        
+      }
+      if(lane == 2)
+      {    
+          if(nearestDist.frontRightNearestDist < 30)
+          {
+              too_close_ahead = true;
+          }
+          if((nearestDist.frontMidNearestDist < 30) || (abs(nearestDist.backMidNearestDist) < 30))
+          {
+              too_close_left = true;
+          }
+      }
+}
+
+int collisionAvoidance(bool too_close_left, bool too_close_right, int lane, double  &ref_vel)
+{
+    int next_lane = lane;
+
+    if ( !too_close_left && lane > 0 ) 
+    {
+        // if there is no car left and there is a left lane.
+        next_lane = lane-1; // Change lane left.
+    }
+    else if ( !too_close_right && lane != 2 )
+    {
+        // if there is no car right and there is a right lane.
+        next_lane = lane+1; // Change lane right.
+    } 
+    else 
+    {
+        // Reduce speed
+        ref_vel -= 0.224;
+    }
+    return next_lane;
+}
+
+int switchToBestLane(bool too_close_right, bool too_close_left, int lane, int best_lane, double &ref_vel)
+{
+    int next_lane = lane;
+    if ( (lane != best_lane )) 
+    {   
+        if(abs(best_lane - lane) > 1)
+        {
+            // TODO Should double lane change be allowed??
+          printf("Double lane change !!! \n");
+        }
+        else if(((best_lane - lane) == 1) && !too_close_right)
+        {
+            // change to right lane
+            next_lane = lane+1;
+        }
+        else if(((best_lane - lane) == -1) && !too_close_left)
+        {
+            // change to left lane
+            next_lane = lane-1;
+        }
+        else
+        {
+            // Current lane is best lane. Do nothing
+        }
+    }
+
+    return next_lane;
+}
+
+vector<double> CalculateLaneCost(lane_dist nearestDist)
+{
+    double lane_cost_left, lane_cost_mid, lane_cost_right ;
+
+    /* Cost based on distance to nearest vehicle in each lane */
+    lane_cost_left = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontLeftNearestDist - ((nearestDist.backLeftNearestDist < 20) ? nearestDist.backLeftNearestDist : MAX_VAL));
+    lane_cost_mid = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontMidNearestDist - ((nearestDist.backMidNearestDist < 20) ? nearestDist.backMidNearestDist : MAX_VAL));
+    lane_cost_right = DIST_WEIGHT * (2*laneCostMax - nearestDist.frontRightNearestDist - ((nearestDist.backRightNearestDist < 20) ? nearestDist.backRightNearestDist : MAX_VAL));
+
+    /* Cost based on speed of nearest vehicle in each lane */
+    lane_cost_left += SPEED_WEIGHT * (2*laneCostMax - nearestDist.speedFrontLeft - ((nearestDist.backLeftNearestDist < 20) ? nearestDist.speedBackLeft : MAX_VAL));
+    lane_cost_mid += SPEED_WEIGHT * (2*laneCostMax - nearestDist.speedFrontMid - ((nearestDist.backMidNearestDist < 20) ? nearestDist.speedBackMid : MAX_VAL));
+    lane_cost_right+= SPEED_WEIGHT * (2*laneCostMax - nearestDist.speedFrontRight - ((nearestDist.backRightNearestDist < 20) ? nearestDist.speedBackRight : MAX_VAL));
+
+    /* Total cost */
+  return {lane_cost_left, lane_cost_mid, lane_cost_right};
+
+}
+
+int selectBestLane(vector<double> lane_cost)
+{
+    double min_cost;
+    int best_lane;
+
+    min_cost = lane_cost[0];
+    best_lane = 0;
+    for(int i = 1; i< 3; i++)
+    {
+        if(lane_cost[i] < min_cost)
+        {
+            min_cost = lane_cost[i];
+            best_lane = i;
+        }
+    }
+
+    return best_lane;
+}
+
+
+
 int main() {
   uWS::Hub h;
 
@@ -204,6 +462,8 @@ int main() {
 
   // Set the starting lane
   int lane = 1;
+  static int lane_prev = lane;
+  static int best_lane_prev = -1;
 
   // Set the reference velocity
   double ref_vel = 0.0;
@@ -259,78 +519,89 @@ int main() {
             bool too_close_left = false;
             bool too_close_right = false;
 
+            lane_dist nearestDist; 
+            nearestDist.frontLeftNearestDist = MAX_VAL;
+            nearestDist.frontMidNearestDist   = MAX_VAL;
+            nearestDist.frontRightNearestDist = MAX_VAL;
+            nearestDist.backLeftNearestDist   = MAX_VAL;
+            nearestDist.backMidNearestDist    = MAX_VAL;
+            nearestDist.backRightNearestDist  = MAX_VAL;
+
+            nearestDist.speedFrontLeft        = MAX_VAL;
+            nearestDist.speedFrontMid         = MAX_VAL;
+            nearestDist.speedFrontRight       = MAX_VAL;
+            nearestDist.speedBackLeft        = MAX_VAL;
+            nearestDist.speedBackMid         = MAX_VAL;
+            nearestDist.speedBackRight       = MAX_VAL;
+
+
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
                 float d = sensor_fusion[i][6];
-                int car_lane = -1;
-                if ( d > 0 && d < 4 ) 
-                {
-                    car_lane = 0;
-                } else if ( d > 4 && d < 8 ) 
-                {
-                    car_lane = 1;
-                } else if ( d > 8 && d < 12 ) 
-                {
-                    car_lane = 2;
-                }
-                if (car_lane < 0) 
-                {
-                    continue;
-                }
 
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(vx*vx + vy*vy);
-                double check_car_s = sensor_fusion[i][5];
+                FindClosestInAllLanes(sensor_fusion[i], prev_size, car_s, nearestDist);
 
-                check_car_s += ((double)prev_size*0.02*check_speed);
-
-                if(lane == car_lane)
-                {                   
-                    if((check_car_s > car_s) && ((check_car_s - car_s) < 30))
-                    {
-                        //ref_vel = 29.5;
-                        too_close_ahead = true;
-                    }
-                }
-                else if(((car_lane - lane) == -1) && (abs(check_car_s - car_s) < 30))
-                {                   
-                    too_close_left = true;                        
-                }
-                else if(((car_lane - lane) == 1) && (abs(check_car_s - car_s) < 30))
-                {
-                    too_close_right = true;
-                }
-                
             }
+
+            vector<double> lane_cost;
+            int best_lane;
+
+            lane_cost = CalculateLaneCost(nearestDist);
+
+            if(lane_hysteresis < 100)
+            {
+                lane_hysteresis++;               
+                best_lane = lane;
+            }
+            else
+            {
+                best_lane = selectBestLane(lane_cost);
+            }
+
+            if(best_lane_prev != best_lane)
+            {
+                lane_confidence_level = 0;
+            }
+            else
+            {
+                lane_confidence_level = ((lane_confidence_level>=40) ? lane_confidence_level : ++lane_confidence_level);
+            }            
+            best_lane_prev = best_lane;
+
+            checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
+
+            /*********************************** debug info *******************************************/
+            printf("best lane %d\n", best_lane);
+            printf("best lane confidence level %d\n", lane_confidence_level );
+            printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
+            /*******************************************************************************************/
+
 
             if(too_close_ahead)
             {
-                if ( !too_close_left && lane > 0 ) 
-                {
-                    // if there is no car left and there is a left lane.
-                    lane--; // Change lane left.
-                }
-                else if ( !too_close_right && lane != 2 )
-                {
-                    // if there is no car right and there is a right lane.
-                    lane++; // Change lane right.
-                } 
-                else 
-                {
-                    // Reduce speed
-                    ref_vel -= 0.224;
-                }
-                
+                lane = collisionAvoidance(too_close_left, too_close_right, lane, ref_vel);               
             }
             else 
             {
-                if ( lane != 1 ) 
-                {   // if we are not on the center lane.
-                    if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
-                    {
-                        lane = 1; // Back to center.
-                    }
+                // if ( lane != best_lane ) 
+                // {   // if we are not on the center lane.
+                //     if ( ( (lane == 0) && !too_close_right ) || ( (lane == 2) && !too_close_left ) ) 
+                //     {
+                //         lane = 1; // Back to center.
+                //     }
+                // }
+                // if(ref_vel < 49.5)
+                // {
+                //     // If not too close to another vehicle, increase the speed
+                //     ref_vel += 0.224;
+                // }
+                if(lane_confidence_level< 40)
+                {
+                     // Wait for lane change
+                }
+                else
+                {
+                    lane = switchToBestLane(too_close_right, too_close_left, lane, best_lane, ref_vel);
                 }
                 if(ref_vel < 49.5)
                 {
@@ -380,6 +651,15 @@ int main() {
                 ptsy.push_back(ref_y);
 
             }
+
+            /* Ensure no double lane change happens */
+            if(abs(lane_prev - lane) > 1)
+            {
+                printf("Evasive lane change");
+                assert(0);
+            }
+
+            lane_prev = lane;
 
             vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
             vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
