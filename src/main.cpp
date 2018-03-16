@@ -362,7 +362,7 @@ int switchToBestLane(bool too_close_right, bool too_close_left, int lane, int be
         if(abs(best_lane - lane) > 1)
         {
             // TODO Should double lane change be allowed??
-          printf("Double lane change !!! \n");
+          //printf("Double lane change !!! \n");
         }
         else if(((best_lane - lane) == 1) && !too_close_right)
         {
