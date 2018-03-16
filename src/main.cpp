@@ -568,9 +568,9 @@ int main() {
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
 
             /*********************************** debug info *******************************************/
-            printf("best lane %d\n", best_lane);
-            printf("best lane confidence level %d\n", lane_confidence_level );
-            printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
+            // printf("best lane %d\n", best_lane);
+            // printf("best lane confidence level %d\n", lane_confidence_level );
+            // printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
             /*******************************************************************************************/
 
 
