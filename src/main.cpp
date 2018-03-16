@@ -495,8 +495,6 @@ int main() {
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
 
-            //printf("car s before: %f \n", car_s);
-
           	// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
@@ -513,7 +511,6 @@ int main() {
             {
                 car_s = end_path_s;
             }
-            //printf("car s after: %f \n", car_s);
 
             bool too_close_ahead = false;
             bool too_close_left = false;
@@ -571,9 +568,9 @@ int main() {
             checkCollisionAhead(lane, nearestDist, too_close_ahead, too_close_right, too_close_left);
 
             /*********************************** debug info *******************************************/
-            printf("best lane %d\n", best_lane);
-            printf("best lane confidence level %d\n", lane_confidence_level );
-            printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
+             //printf("best lane %d\n", best_lane);
+             //printf("best lane confidence level %d\n", lane_confidence_level );
+             //printf("collision detected left %d\n collision detected ahead  %d\n collision detected right %d\n ", too_close_left, too_close_ahead, too_close_right);
             /*******************************************************************************************/
 
 
@@ -634,15 +631,10 @@ int main() {
             {
                 ref_x = previous_path_x[prev_size - 1];
                 ref_y = previous_path_y[prev_size - 1];
-                // printf("\nprevious path x y %f %f\n", ref_x, ref_y);
-                // vector<double> temp = getXY(end_path_s, end_path_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                // printf("\nEnd path converted %f %f\n", temp[0], temp[1]);
 
                 double ref_x_prev = previous_path_x[prev_size - 2];
                 double ref_y_prev = previous_path_y[prev_size - 2];
                 ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
-
-                printf("\nref x y %f %f\n, car x y %f %f\n", ref_x, ref_y, car_x, car_y);
 
                 ptsx.push_back(ref_x_prev);
                 ptsx.push_back(ref_x);
@@ -663,9 +655,7 @@ int main() {
 
             vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
             vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            vector<double> next_wp2 = getXY(car_s + 90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-            printf("next_wp0: %f\n", next_wp0[0]);
+            vector<double> next_wp2 = getXY(car_s +90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
             ptsx.push_back(next_wp0[0]);
             ptsx.push_back(next_wp1[0]);
@@ -737,8 +727,6 @@ int main() {
             }
 
           	json msgJson;
-
-
 
 
           	msgJson["next_x"] = next_x_vals;
